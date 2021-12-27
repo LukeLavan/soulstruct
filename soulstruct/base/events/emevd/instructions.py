@@ -444,9 +444,6 @@ __all__ = [
     "ArenaSetNametag3",
     "ArenaSetNametag4",
     "DisplayArenaDissolutionMessage",
-
-    # Special additions
-    "SendToScript",
 ]
 
 import logging
@@ -665,7 +662,7 @@ def ClearTargetList(character: CharacterTyping):
 
 
 def AICommand(character: CharacterTyping, command_id, slot):
-    """ These instructions can be accessed in AI Lua scripts. """
+    """ The given `command_id` can be accessed in AI Lua scripts with `ai:GetEventRequest(slot)`. """
     instruction_info = (2004, 17)
     return to_numeric(instruction_info, character, command_id, slot)
 
@@ -1935,7 +1932,8 @@ def SetLockedCameraSlot(game_map: MapTyping, camera_slot: int):
 
 def HellkiteBreathControl(character: CharacterTyping, obj: ObjectTyping, animation_id):
     """ I don't recommend you mess with this. It seems to be used to create the fire VFX and damaging effect when the
-    Hellkite breathes fire on the bridge. It may simply trigger a certain behavior params ID.
+    Hellkite breathes fire on the bridge, with (otherwise invisible) object model o1060. It may simply trigger a certain
+    behavior param ID.
 
     Unclear whether the animation applies to the character or object (which is probably an invisible "burning" plane).
     """
@@ -3217,12 +3215,3 @@ def ArenaSetNametag4(player_id: int):
 def DisplayArenaDissolutionMessage(text_id):
     instruction_info = (2007, 9)
     return to_numeric(instruction_info, text_id)
-
-
-# SPECIAL ADDITIONS
-
-
-def SendToScript(int1: int, int2: int, float1: float, float2: float):
-    """Special instruction added by Horkrux for communication with `DarkSoulsScripting.dll`."""
-    instruction_info = (2009, 7)
-    return to_numeric(instruction_info, int1, int2, float1, float2)
