@@ -1,4 +1,4 @@
-"""NOTE: This file is Python 3.7 compatible for Blender 2.9X use."""
+"""NOTE: This file is Python 3.9 compatible for Blender 3.X use."""
 
 from __future__ import annotations
 
@@ -9,14 +9,15 @@ import copy
 import io
 import json
 import logging
+import re
 import typing as tp
 from pathlib import Path
 
 from soulstruct.exceptions import InvalidGameFileTypeError, GameFileDictSupportError
-from soulstruct.containers.entry import BinderEntry
 from soulstruct.containers.dcx import DCX
 from soulstruct.utilities.binary import BinaryReader, get_blake2b_hash
-from soulstruct.utilities.files import create_bak
+from soulstruct.utilities.files import create_bak, read_json, write_json
+from .binder_entry import BinderEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,13 +67,24 @@ class GameFile(abc.ABC):
             if isinstance(file_source, (str, Path)):
                 self.path = Path(file_source)
                 if self.path.suffix == ".json":
-                    with self.path.open("r") as j:
-                        try:
-                            json_dict = json.load(j)
-                        except json.JSONDecodeError as ex:
-                            raise ValueError(f"Encountered JSON decode error in file {self.path}: {ex}")
-                        self.load_dict(json_dict)
-                        return
+                    try:
+                        json_dict = read_json(self.path, encoding="utf-8")
+                    except UnicodeDecodeError as ex:
+                        if pos_match := re.findall(r" in position (\d+):", str(ex)):
+                            raw = self.path.read_bytes()
+                            pos = int(pos_match[0])
+                            line = raw[:pos].count(b"\n") + 1
+                            pos_context = raw[pos - 100:pos + 100]
+                            raise ValueError(
+                                f"Encountered Unicode decode error in JSON file {self.path}: {ex}\n"
+                                f"   Line number: {line}\n"
+                                f"   Byte context: {pos_context}"
+                            )
+                        raise ValueError(f"Encountered Unicode decode error in JSON file {self.path}: {ex}")
+                    except json.JSONDecodeError as ex:
+                        raise ValueError(f"Encountered JSON decode error in file {self.path}: {ex}")
+                    self.load_dict(json_dict)
+                    return
             if isinstance(file_source, (str, Path, bytes, io.BufferedIOBase, BinderEntry)):
                 reader = BinaryReader(file_source)
             elif isinstance(file_source, BinaryReader):
@@ -181,8 +193,7 @@ class GameFile(abc.ABC):
         file_path = Path(file_path)
         if file_path.suffix != ".json":
             file_path = file_path.with_suffix(file_path.suffix + ".json")
-        with file_path.open("w", encoding=encoding) as j:
-            json.dump(json_dict, j, indent=indent)
+        write_json(file_path, json_dict, indent=indent, encoding=encoding)
 
     def create_bak(self, file_path: tp.Union[None, str, Path] = None, make_dirs=True):
         file_path = self._get_file_path(file_path)
