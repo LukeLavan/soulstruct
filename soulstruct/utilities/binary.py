@@ -697,12 +697,18 @@ class BinaryReader:
         Also raises a `ValueError` if more than one value is unpacked.
         """
         data = self.unpack(fmt, offset, relative_offset)
+        if data is None:
+            raise ValueError(f"Could not unpack data with format '{fmt}'.")
         if len(data) > 1:
             raise ValueError(f"More than one value unpacked with `unpack_value()`: {data}")
         value = data[0]
         if asserted is not None and value != asserted:
             raise AssertionError(f"Unpacked value {repr(value)} does not equal asserted value {repr(asserted)}.")
         return data[0]
+
+    def byte(self, big_endian=False):
+        """Utility function for simplifying little-endian one-byte reads."""
+        return self.unpack_value(">B" if big_endian else "<B")
 
     def peek(self, fmt):
         """Unpack `fmt` and return the unpacked values without changing the offset."""
