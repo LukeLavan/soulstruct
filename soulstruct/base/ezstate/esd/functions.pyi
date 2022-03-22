@@ -9,6 +9,7 @@ Currently identical for all (supported) games.
 """
 import typing as tp
 
+from soulstruct.base.events.emevd.enums import ComparisonType
 from soulstruct.game_types.internal_types import ESDType
 
 
@@ -1511,7 +1512,9 @@ def BonfireRegistration3(*args): ...
 def BonfireRegistration4(*args): ...
 
 # test talk[45]
-def ComparePlayerStatus(*args): ...
+def ComparePlayerStatus(stat: int, comparison_type: ComparisonType, value: int): ...
+""" returns 1 if the comparison specified by comparison_type between the player stat and
+value specified """
 
 # test talk[46]
 def RelativeAngleBetweenTwoPlayers_SpecifyAxis(*args): ...
