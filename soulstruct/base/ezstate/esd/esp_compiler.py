@@ -3,10 +3,15 @@ from __future__ import annotations
 __all__ = ["ESPCompiler"]
 
 import ast
+import importlib
+import logging
+from pathlib import Path
+from queue import Queue
 import re
 import struct
 import typing as tp
-from queue import Queue
+
+from soulstruct.utilities.files import import_arbitrary_file
 
 from .exceptions import ESDError, ESDSyntaxError, ESDValueError
 from .ezl_parser import FUNCTION_ARG_BYTES_BY_COUNT, OPERATORS_BY_NODE
@@ -14,6 +19,10 @@ from .functions import COMMANDS_BANK_ID_BY_TYPE_NAME, TEST_FUNCTIONS_ID_BY_TYPE_
 
 if tp.TYPE_CHECKING:
     from .core import ESD
+
+
+_GAME_IMPORT_RE = re.compile(r"^(from|import) soulstruct\.\w[\w\d]+\.events")
+_LOGGER = logging.getLogger(__name__)
 
 
 class ESPCompiler:
@@ -29,6 +38,7 @@ class ESPCompiler:
         self.state_machine_index = None
         self.state_info = {}
         self.states = {}
+        self.esp_path = esp_path
 
         # Condition state.
         self.registers = [()] * 8  # type: list[tuple]
@@ -43,6 +53,46 @@ class ESPCompiler:
 
         self.compile_script()
 
+    def _import_from(self, node: ast.ImportFrom, namespace: dict):
+        """Import names into given namespace dictionary."""
+        # Try to import and reload module normally.
+        try:
+            module = importlib.import_module(node.module)
+            importlib.reload(module)
+        except ImportError:
+            # couldn't find module, so this is a relative import
+            module_path = self.esp_path / ("../" * node.level + node.module.replace(".", "/") + ".py")
+            module = import_arbitrary_file(module_path)
+        for alias in node.names:
+            name = alias.name
+            if _GAME_IMPORT_RE.match(name):
+                return  # already imported
+            if name == "*":
+                if "__all__" in vars(module):
+                    all_names = vars(module)["__all__"]
+                else:
+                    # Get all names that were defined in the module and don't begin with an underscore.
+                    module_name = node.module.split(".")[-1]
+                    all_names = [
+                        n
+                        for n, attr in vars(module).items()
+                        if not n.startswith("_") and (not hasattr(attr, "__module__") or attr.__module__ == module_name)
+                    ]
+                for name_ in all_names:
+                    try:
+                        namespace[name_] = getattr(module, name_)
+                    except AttributeError as e:
+                        _LOGGER.error(
+                            f"EVS error: could not import {name_} from module {node.module} " f"(__all__ = {all_names})"
+                        )
+                        raise ESDImportFromError(node, node.module, name_, str(e))
+            else:
+                as_name = alias.asname if alias.asname is not None else name
+                try:
+                    namespace[as_name] = getattr(module, name)
+                except AttributeError as e:
+                    raise ESDImportFromError(node, node.module, name, str(e))
+
     def compile_script(self):
         """Top-level node traversal.
 
@@ -50,6 +100,7 @@ class ESPCompiler:
         your event scripts).
         """
         self.docstring = ast.get_docstring(self.tree)
+        self.globals = dict()
 
         for node in self.tree.body[1:]:
 
@@ -60,8 +111,8 @@ class ESPCompiler:
                     "'from soulstruct.{game}.ezstate.esd.functions import *').",
                 )
             elif isinstance(node, ast.ImportFrom):
-                # TODO: self.import_constants(node)
-                pass
+                self._import_from(node, self.globals)
+                print(self.globals)
             elif isinstance(node, ast.ClassDef):
                 self.scan_state(node)
             else:
@@ -291,8 +342,7 @@ class ESPCompiler:
                     subcondition_nodes.append(body_node)
             self.plan_condition_registers(subcondition_nodes)
 
-    @staticmethod
-    def parse_args(arg_nodes):
+    def parse_args(self, arg_nodes):
         args = []
         for node in arg_nodes:
             if isinstance(node, ast.Num):
@@ -301,8 +351,10 @@ class ESPCompiler:
                 args.append(-node.operand.n)
             elif isinstance(node, (ast.Subscript, ast.Name)):
                 args.append(node)
+            elif isinstance(node, ast.Attribute):
+                args.append(self.globals[node.value.id][node.attr])
             else:
-                raise ESDValueError(node.lineno, "Function arguments must be numeric literals.")
+                raise ESDValueError(node.lineno, "Function arguments must be numeric literals, was "+str(type(node)))
         return tuple(args)
 
     def save_into_next_available_register(self, call):
@@ -420,7 +472,8 @@ class ESPCompiler:
             ):
                 return self.compile_number(node.slice.value.n) + b"\xb8"
             raise ESDSyntaxError(node.lineno, "Only valid subscripted symbol is MACHINE_ARGS[i].")
-
+        if isinstance(node, ast.Attribute):
+            return self.compile_number(self.globals[node.value.id][node.attr])
         raise TypeError(
             f"Invalid node type appeared in condition test: {type(node)}.\n"
             f"Conditions must be bools, boolean ops, comparisons, function calls, or a permitted name."
@@ -531,3 +584,9 @@ class ESPCompiler:
                     raise ESDValueError(node.lineno, f"Sequences must contain only numeric/string literals.")
             return t
         raise ESDSyntaxError(node.lineno, f"Expected a list or tuple node, but found: {type(node)}")
+
+class ESDImportFromError(ESDError):
+    """Raised when a name cannot be imported from a module."""
+
+    def __init__(self, lineno, module, name, msg):
+        super().__init__(lineno, f"Could not import {repr(name)} from module {repr(module)}. Error: {msg}")
