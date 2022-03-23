@@ -21,6 +21,7 @@ __all__ = [
     "CharacterUpdateRate",
     "ClassType",
     "ComparisonType",
+    "ChangeType",
     "CutsceneType",
     "DamageTargetType",
     "EventReturnType",
@@ -141,6 +142,12 @@ class ComparisonType(IntEnum):
     LessThan = 3
     GreaterThanOrEqual = 4
     LessThanOrEqual = 5
+
+
+class ChangeType(IntEnum):
+    Addition = 0
+    Subtraction = 1
+    Set = 5
 
 
 class CutsceneType(IntEnum):
@@ -415,4 +422,7 @@ class NPCPartType(IntEnum):
 
 
 class TeamType(IntEnum):
+    pass
+
+class PlayerStats(IntEnum):
     pass

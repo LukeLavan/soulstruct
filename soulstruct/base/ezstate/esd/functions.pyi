@@ -9,7 +9,7 @@ Currently identical for all (supported) games.
 """
 import typing as tp
 
-from soulstruct.base.events.emevd.enums import ComparisonType
+from soulstruct.base.events.emevd.enums import ComparisonType, ChangeType, PlayerStats
 from soulstruct.game_types.internal_types import ESDType
 
 
@@ -517,7 +517,9 @@ def EndBonfireKindleAnimLoop(): ...
 def OpenSellShop(*args): ...
 
 # command talk[1][47]
-def ChangePlayerStats(unk1: int, unk2: int, unk3: int): ...  # TODO: Map enums for this.
+def ChangePlayerStats(stat: PlayerStats, change_type: ChangeType, value: int): 
+    """ change the specified stat to the specified value via the specified change_type """
+    ...  # TODO: Map enums for this.
 
 # command talk[1][48]
 def OpenEquipmentChangeOfPurposeShop(*args): ...
@@ -1512,9 +1514,10 @@ def BonfireRegistration3(*args): ...
 def BonfireRegistration4(*args): ...
 
 # test talk[45]
-def ComparePlayerStatus(stat: int, comparison_type: ComparisonType, value: int): ...
-""" returns 1 if the comparison specified by comparison_type between the player stat and
-value specified """
+def ComparePlayerStatus(stat: PlayerStats, comparison_type: ComparisonType, value: int):
+    """ returns 1 if the comparison specified by comparison_type between the player stat and
+    value specified """
+    ...
 
 # test talk[46]
 def RelativeAngleBetweenTwoPlayers_SpecifyAxis(*args): ...
@@ -1526,10 +1529,9 @@ def ComparePlayerInventoryNumber(*args): ...
 def IsPlayerCurrentWeaponDamaged(*args): ...
 
 # test talk[49]
-def ComparePlayerAcquittalPrice(factor1: int, factor2: int, comparison_type: int): 
+def ComparePlayerAcquittalPrice(factor1: int, factor2: int, comparison_type: ComparisonType): 
     """ returns 1 if the comparison specified by comparison_type between the player's soul count
-    and the product of multiplying the player's soul level and the two factor arguments\n
-    TODO: 2 is less than, 3 is greater than or equal? """
+    and the product of multiplying the player's soul level and the two factor arguments """
     ...
 
 # test talk[50]
