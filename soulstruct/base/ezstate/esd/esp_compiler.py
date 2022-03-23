@@ -112,7 +112,6 @@ class ESPCompiler:
                 )
             elif isinstance(node, ast.ImportFrom):
                 self._import_from(node, self.globals)
-                print(self.globals)
             elif isinstance(node, ast.ClassDef):
                 self.scan_state(node)
             else:
