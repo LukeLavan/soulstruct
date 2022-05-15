@@ -156,12 +156,16 @@ class CutsceneType(IntEnum):
     Unskippable = 0b0010  # 2
     SkippableFadeOut = 0b1000  # 8
     UnskippableFadeOut = 0b1010  # 10
+    UnknownEldenRing = 0b10000  # 16
 
     def is_skippable(self):
         return f"{self.value:04b}"[-2] == "0"
 
     def is_fade_out(self):
         return f"{self.value:04b}"[-4] == "1"
+
+    def is_unknown_elden_ring(self):
+        return f"{self.value:05b}"[-5] == "1"
 
 
 class DamageTargetType(IntEnum):
